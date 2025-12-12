@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>🌱 Plant Disease Detection</h1>
+                <p class="subtitle">Upload a plant leaf image to detect diseases using AI</p>
+            </div>
+        </header>
+
+        <main>
+            {% if not model_loaded %}
+            <div class="alert alert-warning">
+                <h3>⚠️ Model Not Found</h3>
+                <p>Please train the model first by running:</p>
+                <code>python train_model_sklearn.py</code>
+            </div>
+            {% endif %}
+
+            <div class="upload-section">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-content" id="uploadContent">
+                        <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <h2>Drop your image here</h2>
+                        <p>or click to browse</p>
+                        <p class="file-types">Supports: JPG, PNG, JPEG, GIF, BMP</p>
+                        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="preview-content" id="previewContent" style="display: none;">
+                        <img id="imagePreview" src="" alt="Preview">
+                        <button class="btn-change" id="changeBtn">Change Image</button>
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="analyzeBtn" disabled>
+                    <span id="btnText">Analyze Plant</span>
+                    <span id="btnLoader" style="display: none;">Analyzing...</span>
+                </button>
+            </div>
+
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h2>Analysis Results</h2>
+                <div id="resultsContent"></div>
+            </div>
+
+            <div class="info-section">
+                <h3>How it works</h3>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-icon">📸</div>
+                        <h4>1. Upload</h4>
+                        <p>Take or upload a clear photo of a plant leaf</p>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">🤖</div>
+                        <h4>2. Analyze</h4>
+                        <p>AI analyzes the image for disease patterns</p>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">📊</div>
+                        <h4>3. Results</h4>
+                        <p>Get disease prediction with confidence scores</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h3>Detection Capabilities</h3>
+                <div class="features-grid">
+                    <div class="feature-item">🍎 Apple Diseases</div>
+                    <div class="feature-item">🍅 Tomato Diseases</div>
+                    <div class="feature-item">🥔 Potato Diseases</div>
+                    <div class="feature-item">🌽 Corn Diseases</div>
+                    <div class="feature-item">🍇 Grape Diseases</div>
+                    <div class="feature-item">🌶️ Pepper Diseases</div>
+                    <div class="feature-item">🍓 Strawberry Diseases</div>
+                    <div class="feature-item">🍑 Peach Diseases</div>
+                    <div class="feature-item">✅ Healthy Plants</div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Plant Disease Detection System | AI-Powered Agriculture Solution</p>
+        </footer>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        const uploadBox = document.getElementById('uploadBox');
+        const uploadContent = document.getElementById('uploadContent');
+        const previewContent = document.getElementById('previewContent');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const changeBtn = document.getElementById('changeBtn');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContent = document.getElementById('resultsContent');
+        const btnText = document.getElementById('btnText');
+        const btnLoader = document.getElementById('btnLoader');
+
+        // Click to upload
+        uploadBox.addEventListener('click', () => {
+            if (!previewContent.style.display || previewContent.style.display === 'none') {
+                fileInput.click();
+            }
+        });
+
+        // Drag and drop
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.classList.add('drag-over');
+        });
+
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.classList.remove('drag-over');
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Change button
+        changeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetUpload();
+        });
+
+        // Analyze button
+        analyzeBtn.addEventListener('click', analyzeImage);
+
+        function handleFile(file) {
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload a valid image file (JPG, PNG, GIF, BMP)');
+                return;
+            }
+
+            // Validate file size (16MB max)
+            if (file.size > 16 * 1024 * 1024) {
+                alert('File size must be less than 16MB');
+                return;
+            }
+
+            selectedFile = file;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                uploadContent.style.display = 'none';
+                previewContent.style.display = 'flex';
+                analyzeBtn.disabled = false;
+                resultsSection.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetUpload() {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadContent.style.display = 'flex';
+            previewContent.style.display = 'none';
+            analyzeBtn.disabled = true;
+            resultsSection.style.display = 'none';
+        }
+
+        async function analyzeImage() {
+            if (!selectedFile) return;
+
+            // Show loading state
+            analyzeBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoader.style.display = 'inline';
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(data.predictions);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error analyzing image: ' + error.message);
+            } finally {
+                // Reset button state
+                analyzeBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+            }
+        }
+
+        function displayResults(predictions) {
+            resultsContent.innerHTML = '';
+
+            predictions.forEach((pred, index) => {
+                const resultCard = document.createElement('div');
+                resultCard.className = 'result-card';
+                
+                const confidenceClass = pred.confidence > 70 ? 'high' : pred.confidence > 40 ? 'medium' : 'low';
+                
+                resultCard.innerHTML = `
+                    <div class="result-header">
+                        <span class="result-rank">#${index + 1}</span>
+                        <span class="confidence-badge ${confidenceClass}">${pred.confidence}%</span>
+                    </div>
+                    <div class="result-body">
+                        <div class="result-label">Plant:</div>
+                        <div class="result-value">${pred.plant}</div>
+                        <div class="result-label">Condition:</div>
+                        <div class="result-value disease-name">${pred.disease}</div>
+                    </div>
+                `;
+                
+                resultsContent.appendChild(resultCard);
+            });
+
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
