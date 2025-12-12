@@ -231,7 +231,7 @@
                 const resultCard = document.createElement('div');
                 resultCard.className = 'result-card';
                 
-                const confidenceClass = pred.confidence > 70 ? 'high' : pred.confidence > 40 ? 'medium' : 'low';
+                const confidenceClass = pred.confidence > 50 ? 'high' : pred.confidence > 25 ? 'medium' : 'low';
                 
                 resultCard.innerHTML = `
                     <div class="result-header">
